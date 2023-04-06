@@ -25,7 +25,7 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
 }
 
 fn handler(conn: std.net.StreamServer.Connection) !void {
-    var buf: [100000]u8 = undefined;
+    var buf: [1000]u8 = undefined;
     while (true) {
         const line = (nextLine(conn.stream.reader(), &buf) catch break);
         if (line == null) break;
