@@ -1,0 +1,7 @@
+A toy web server written in zig.
+
+I'm not very good at zig so the zig code is bad.
+
+The idea is that instead of actually parsing requests, looking up files on disk, and formulating responses,
+we iterate over the document root once, at startup, and create a hash table mapping requests to response,
+and then whenever a request comes in we serve raw bytes straight out of the hashtable.
