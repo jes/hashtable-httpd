@@ -1,9 +1,10 @@
 const std = @import("std");
+const os = @import("os");
 
 var response_table: std.StringHashMap([]const u8) = undefined;
 
 pub fn main() !void {
-    response_table = makeResponseTable();
+    makeResponseTable();
     var listener = std.net.StreamServer.init(std.net.StreamServer.Options{ .reuse_address = true });
     const port = 8100;
     try listener.listen(try std.net.Address.parseIp4("0.0.0.0", port));
@@ -46,8 +47,30 @@ fn send_404(conn: std.net.StreamServer.Connection) !void {
     _ = try conn.stream.write("HTTP/1.1 404 Not Found\r\nContent-type: text/plain\r\nConnection: close\r\n\r\n404\n");
 }
 
-fn makeResponseTable() std.StringHashMap([]const u8) {
-    var table = std.StringHashMap([]const u8).init(std.heap.page_allocator);
-    table.put("GET / HTTP/1.1", "HTTP/1.1 200 OK\r\nContent-type: text/plain\r\nConnection: close\r\nContent-length: 12\r\n\r\nhello world\n") catch unreachable;
-    return table;
+fn makeResponseTable() void {
+    var dir = std.fs.cwd().openDir("www", .{}) catch return;
+    var iterabledir = std.fs.cwd().openIterableDir("www", .{}) catch return;
+    //if (dir == null) {
+    //    std.debug.print("can't open www/\n", .{});
+    //    return;
+    //}
+    var d = iterabledir.iterate();
+
+    response_table = std.StringHashMap([]const u8).init(std.heap.page_allocator);
+
+    while (true) {
+        var entry = d.next() catch break;
+        if (entry == null) break;
+        var e = entry.?;
+        addFile(dir, e.name);
+        std.debug.print("{s}\n", .{e.name});
+    }
+}
+
+fn addFile(dir: std.fs.Dir, name: []const u8) void {
+    var file = dir.openFile(name, .{}) catch return;
+    var content = file.readToEndAlloc(std.heap.page_allocator, 1024) catch return;
+    var headers = std.fmt.allocPrint(std.heap.page_allocator, "Connection: close\r\nContent-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET /{s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET /{s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
 }

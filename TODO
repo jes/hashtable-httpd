@@ -1,11 +1,14 @@
- - load the web content from disk
- - support HTTP/1.0 (just add 2 entries to the hashtable, one for HTTP/1.0, one for HTTP/1.1)
+ - recurse into subdirectories
+ - check if insertion into a hashtable copies the key+value: if so, free the ones we created
+ - get correct content-type
  - support HEAD requests
  - support pipelined requests
  - support Range queries
+ - handle errors (instead of catch return etc.)
  - profile
  - benchmark, compare to nginx
  - strip query strings (maybe? should profile it first)
+ - sensible logging
  - instructions for deploying a static site with docker
  - use memory more efficiently (instead of page_allocator)
  - use cpu more efficiently than making a separate thread for each client
