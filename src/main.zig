@@ -49,7 +49,7 @@ fn send_404(conn: std.net.StreamServer.Connection) !void {
 
 fn makeResponseTable() void {
     var dir = std.fs.cwd().openDir("www", .{}) catch return;
-    var iterabledir = std.fs.cwd().openIterableDir("www", .{}) catch return;
+    var iterabledir = dir.openIterableDir(".", .{}) catch return;
     //if (dir == null) {
     //    std.debug.print("can't open www/\n", .{});
     //    return;
