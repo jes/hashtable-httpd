@@ -1,6 +1,8 @@
  - load the web content from disk
  - support HTTP/1.0 (just add 2 entries to the hashtable, one for HTTP/1.0, one for HTTP/1.1)
+ - support HEAD requests
  - support pipelined requests
+ - support Range queries
  - profile
  - benchmark, compare to nginx
  - strip query strings (maybe? should profile it first)
