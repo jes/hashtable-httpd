@@ -3,6 +3,9 @@ const os = @import("os");
 
 var response_table: std.StringHashMap([]const u8) = undefined;
 
+var docroot_path = "www";
+var max_file_size = 1048576; // bytes
+
 pub fn main() !void {
     makeResponseTable();
     var listener = std.net.StreamServer.init(std.net.StreamServer.Options{ .reuse_address = true });
@@ -50,7 +53,7 @@ fn send_404(conn: std.net.StreamServer.Connection) !void {
 fn makeResponseTable() void {
     response_table = std.StringHashMap([]const u8).init(std.heap.page_allocator);
 
-    var docroot = std.fs.cwd().openIterableDir("www", .{}) catch return;
+    var docroot = std.fs.cwd().openIterableDir(docroot_path, .{}) catch return;
     addFiles(docroot, "");
 }
 
@@ -72,7 +75,7 @@ fn addFiles(dir: std.fs.IterableDir, name: []const u8) void {
 }
 
 fn addFile(file: std.fs.File, name: []const u8) void {
-    var content = file.readToEndAlloc(std.heap.page_allocator, 1024) catch return;
+    var content = file.readToEndAlloc(std.heap.page_allocator, max_file_size) catch return;
     var headers10 = std.fmt.allocPrint(std.heap.page_allocator, "Content-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
     var headers11 = std.fmt.allocPrint(std.heap.page_allocator, "Connection: close\r\nContent-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
     response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers10, content }) catch return) catch return;
