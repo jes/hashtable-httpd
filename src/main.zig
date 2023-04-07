@@ -73,9 +73,10 @@ fn addFiles(dir: std.fs.IterableDir, name: []const u8) void {
 
 fn addFile(file: std.fs.File, name: []const u8) void {
     var content = file.readToEndAlloc(std.heap.page_allocator, 1024) catch return;
-    var headers = std.fmt.allocPrint(std.heap.page_allocator, "Connection: close\r\nContent-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n", .{headers}) catch return) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n", .{headers}) catch return) catch return;
+    var headers10 = std.fmt.allocPrint(std.heap.page_allocator, "Content-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
+    var headers11 = std.fmt.allocPrint(std.heap.page_allocator, "Connection: close\r\nContent-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers10, content }) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n{s}", .{ headers11, content }) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n", .{headers10}) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n", .{headers11}) catch return) catch return;
 }

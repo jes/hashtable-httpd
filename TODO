@@ -1,7 +1,6 @@
- - check if insertion into a hashtable copies the key+value: if so, free the ones we created
  - get correct content-type
- - stop putting HTTP/1.0 headers in HTTP/1.1 responses
  - support pipelined requests
+ - check if insertion into a hashtable copies the key+value: if so, free the ones we created
  - stop leaking memory
  - handle errors (instead of catch return etc.)
  - profile
