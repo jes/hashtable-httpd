@@ -48,29 +48,34 @@ fn send_404(conn: std.net.StreamServer.Connection) !void {
 }
 
 fn makeResponseTable() void {
-    var dir = std.fs.cwd().openDir("www", .{}) catch return;
-    var iterabledir = dir.openIterableDir(".", .{}) catch return;
-    //if (dir == null) {
-    //    std.debug.print("can't open www/\n", .{});
-    //    return;
-    //}
-    var d = iterabledir.iterate();
-
     response_table = std.StringHashMap([]const u8).init(std.heap.page_allocator);
+
+    var docroot = std.fs.cwd().openIterableDir("www", .{}) catch return;
+    addFiles(docroot, "");
+}
+
+fn addFiles(dir: std.fs.IterableDir, name: []const u8) void {
+    var d = dir.iterate();
 
     while (true) {
         var entry = d.next() catch break;
         if (entry == null) break;
         var e = entry.?;
-        addFile(dir, e.name);
-        std.debug.print("{s}\n", .{e.name});
+        var filename = std.fmt.allocPrint(std.heap.page_allocator, "{s}/{s}", .{ name, e.name }) catch break;
+        if (e.kind == .File) {
+            addFile(dir.dir.openFile(e.name, .{}) catch break, filename);
+        } else {
+            addFiles(dir.dir.openIterableDir(e.name, .{}) catch break, filename);
+        }
+        std.debug.print("{s}\n", .{filename});
     }
 }
 
-fn addFile(dir: std.fs.Dir, name: []const u8) void {
-    var file = dir.openFile(name, .{}) catch return;
+fn addFile(file: std.fs.File, name: []const u8) void {
     var content = file.readToEndAlloc(std.heap.page_allocator, 1024) catch return;
     var headers = std.fmt.allocPrint(std.heap.page_allocator, "Connection: close\r\nContent-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET /{s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET /{s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n{s}", .{ headers, content }) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n", .{headers}) catch return) catch return;
+    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n", .{headers}) catch return) catch return;
 }

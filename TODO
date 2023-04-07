@@ -1,14 +1,15 @@
- - recurse into subdirectories
  - check if insertion into a hashtable copies the key+value: if so, free the ones we created
  - get correct content-type
- - support HEAD requests
+ - stop putting HTTP/1.0 headers in HTTP/1.1 responses
  - support pipelined requests
- - support Range queries
+ - stop leaking memory
  - handle errors (instead of catch return etc.)
  - profile
  - benchmark, compare to nginx
+ - support Range queries (maybe? profile it first)
  - strip query strings (maybe? should profile it first)
  - sensible logging
  - instructions for deploying a static site with docker
  - use memory more efficiently (instead of page_allocator)
  - use cpu more efficiently than making a separate thread for each client
+ - http/2
