@@ -3,24 +3,32 @@ const os = @import("os");
 
 var response_table: std.StringHashMap([]const u8) = undefined;
 
-var docroot_path = "www";
-var max_file_size = 1048576; // bytes
+const listen_port = 8100;
+const docroot_path = "www";
+const max_file_size = 1048576; // bytes
 
 pub fn main() !void {
-    makeResponseTable();
+    makeResponseTable() catch |err| {
+        std.debug.print("makeResponseTable: {}\n", .{err});
+        std.process.exit(1);
+    };
     var listener = std.net.StreamServer.init(std.net.StreamServer.Options{ .reuse_address = true });
-    const port = 8100;
-    try listener.listen(try std.net.Address.parseIp4("0.0.0.0", port));
-    std.debug.print("listening on port {d}\n", .{port});
+    try listener.listen(try std.net.Address.parseIp4("0.0.0.0", listen_port));
+    std.debug.print("listening on port {d}\n", .{listen_port});
     while (true) {
-        var conn = listener.accept() catch break;
-        _ = try std.Thread.spawn(std.Thread.SpawnConfig{}, handler, .{conn});
+        const conn = listener.accept() catch |err| {
+            std.debug.print("accept: {}\n", .{err});
+            std.process.exit(1);
+        };
+        _ = std.Thread.spawn(.{}, handler, .{conn}) catch |err| {
+            std.debug.print("std.Thread.spawn: {}\n", .{err});
+            conn.stream.close();
+        };
     }
-    std.debug.print("dieded\n", .{});
 }
 
 fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
-    var line = (try reader.readUntilDelimiterOrEof(
+    const line = (try reader.readUntilDelimiterOrEof(
         buffer,
         '\n',
     )) orelse return null;
@@ -28,58 +36,59 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
 }
 
 fn handler(conn: std.net.StreamServer.Connection) !void {
-    var buf: [1000]u8 = undefined;
-    while (true) {
-        const line = (nextLine(conn.stream.reader(), &buf) catch break);
-        if (line == null) break;
-        const request = line.?;
-        std.debug.print("> {s}\n", .{request});
-        var response = response_table.get(request);
-        if (response == null) {
-            send_404(conn) catch break;
-            break;
-        }
-        _ = conn.stream.write(response.?) catch break;
-        break;
-    }
-    conn.stream.close();
+    defer conn.stream.close();
+    handleRequest(conn) catch |err| {
+        std.debug.print("handleRequest: {}\n", .{err});
+    };
     std.debug.print("disconnected\n", .{});
 }
 
-fn send_404(conn: std.net.StreamServer.Connection) !void {
+fn handleRequest(conn: std.net.StreamServer.Connection) !void {
+    var buf: [1000]u8 = undefined;
+    while (true) {
+        const request = try nextLine(conn.stream.reader(), &buf) orelse break;
+        std.debug.print("> {s}\n", .{request});
+        const response = response_table.get(request) orelse {
+            try send404(conn);
+            break;
+        };
+        _ = try conn.stream.write(response);
+        break;
+    }
+}
+
+fn send404(conn: std.net.StreamServer.Connection) !void {
     _ = try conn.stream.write("HTTP/1.1 404 Not Found\r\nContent-type: text/plain\r\nConnection: close\r\n\r\n404\n");
 }
 
-fn makeResponseTable() void {
+fn makeResponseTable() !void {
     response_table = std.StringHashMap([]const u8).init(std.heap.page_allocator);
 
-    var docroot = std.fs.cwd().openIterableDir(docroot_path, .{}) catch return;
-    addFiles(docroot, "");
+    const docroot = try std.fs.cwd().openIterableDir(docroot_path, .{});
+    try addFiles(docroot, "");
 }
 
-fn addFiles(dir: std.fs.IterableDir, name: []const u8) void {
+fn addFiles(dir: std.fs.IterableDir, name: []const u8) !void {
     var d = dir.iterate();
 
     while (true) {
-        var entry = d.next() catch break;
-        if (entry == null) break;
-        var e = entry.?;
-        var filename = std.fmt.allocPrint(std.heap.page_allocator, "{s}/{s}", .{ name, e.name }) catch break;
+        const e = try d.next() orelse break;
+        const filename = std.fmt.allocPrint(std.heap.page_allocator, "{s}/{s}", .{ name, e.name }) catch break;
         if (e.kind == .File) {
-            addFile(dir.dir.openFile(e.name, .{}) catch break, filename);
+            try addFile(dir.dir.openFile(e.name, .{}) catch break, filename);
         } else {
-            addFiles(dir.dir.openIterableDir(e.name, .{}) catch break, filename);
+            try addFiles(dir.dir.openIterableDir(e.name, .{}) catch break, filename);
         }
         std.debug.print("{s}\n", .{filename});
     }
 }
 
-fn addFile(file: std.fs.File, name: []const u8) void {
-    var content = file.readToEndAlloc(std.heap.page_allocator, max_file_size) catch return;
-    var headers10 = std.fmt.allocPrint(std.heap.page_allocator, "Content-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
-    var headers11 = std.fmt.allocPrint(std.heap.page_allocator, "Connection: close\r\nContent-type: text/html\r\nContent-length: {d}\r\n", .{content.len}) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers10, content }) catch return) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n{s}", .{ headers11, content }) catch return) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.0", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n", .{headers10}) catch return) catch return;
-    response_table.put(std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.1", .{name}) catch return, std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n", .{headers11}) catch return) catch return;
+fn addFile(file: std.fs.File, name: []const u8) !void {
+    const content = try file.readToEndAlloc(std.heap.page_allocator, max_file_size);
+    const headers10 = try std.fmt.allocPrint(std.heap.page_allocator, "Content-type: text/html\r\nContent-length: {d}\r\n", .{content.len});
+    const headers11 = try std.fmt.allocPrint(std.heap.page_allocator, "Connection: close\r\nContent-type: text/html\r\nContent-length: {d}\r\n", .{content.len});
+    try response_table.put(try std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.0", .{name}), try std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n{s}", .{ headers10, content }));
+    try response_table.put(try std.fmt.allocPrint(std.heap.page_allocator, "GET {s} HTTP/1.1", .{name}), try std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n{s}", .{ headers11, content }));
+    try response_table.put(try std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.0", .{name}), try std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.0 200 OK\r\n{s}\r\n", .{headers10}));
+    try response_table.put(try std.fmt.allocPrint(std.heap.page_allocator, "HEAD {s} HTTP/1.1", .{name}), try std.fmt.allocPrint(std.heap.page_allocator, "HTTP/1.1 200 OK\r\n{s}\r\n", .{headers11}));
 }
