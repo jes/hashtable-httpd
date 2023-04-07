@@ -52,13 +52,13 @@ fn handleRequest(conn: std.net.StreamServer.Connection) !void {
             try send404(conn);
             break;
         };
-        _ = try conn.stream.write(response);
+        try conn.stream.writeAll(response);
         break;
     }
 }
 
 fn send404(conn: std.net.StreamServer.Connection) !void {
-    _ = try conn.stream.write("HTTP/1.1 404 Not Found\r\nContent-type: text/plain\r\nConnection: close\r\n\r\n404\n");
+    try conn.stream.writeAll("HTTP/1.1 404 Not Found\r\nContent-type: text/plain\r\nConnection: close\r\n\r\n404\n");
 }
 
 fn makeResponseTable() !void {
