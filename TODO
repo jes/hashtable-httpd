@@ -1,5 +1,4 @@
  - get correct content-type
- - support pipelined requests
  - take arguments on command line
  - stop leaking memory
  - handle errors (instead of catch return etc.)
