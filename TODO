@@ -7,6 +7,7 @@
  - support Range queries (maybe? profile it first)
  - strip query strings (maybe? should profile it first)
  - sensible logging
+ - reload data on sighup
  - instructions for deploying a static site with docker
  - use memory more efficiently (instead of page_allocator)
  - use cpu more efficiently than making a separate thread for each client

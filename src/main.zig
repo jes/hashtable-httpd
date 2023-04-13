@@ -53,12 +53,11 @@ fn handleRequest(conn: std.net.StreamServer.Connection) !void {
         // Host, Connection, Range, ...?
         try skipHeaders(conn);
         std.debug.print("> {s}\n", .{request});
-        const response = response_table.get(request) orelse {
+        if (response_table.get(request)) |response| {
+            try conn.stream.writeAll(response);
+        } else {
             try send404(conn);
-            // TODO: pipelining for 404s?
-            break;
-        };
-        try conn.stream.writeAll(response);
+        }
         // TODO: read request body, if any? do whatever is needed to either read
         // up to the point where we're expecting a new request, or else cleanly
         // close the connection
@@ -76,7 +75,7 @@ fn skipHeaders(conn: std.net.StreamServer.Connection) !void {
 
 fn send404(conn: std.net.StreamServer.Connection) !void {
     // TODO: read from /404.html ?
-    try conn.stream.writeAll("HTTP/1.1 404 Not Found\r\nContent-type: text/plain\r\nConnection: close\r\n\r\n404\n");
+    try conn.stream.writeAll("HTTP/1.1 404 Not Found\r\nConnection: keep-alive\r\nContent-type: text/html\r\nContent-length: 4\r\n\r\n404\n");
 }
 
 fn makeResponseTable() !void {
