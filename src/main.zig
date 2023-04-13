@@ -40,13 +40,13 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
 
 fn handler(conn: std.net.StreamServer.Connection) !void {
     defer conn.stream.close();
-    handleRequest(conn) catch |err| {
+    handleClient(conn) catch |err| {
         std.debug.print("handleRequest: {}\n", .{err});
     };
     std.debug.print("disconnected\n", .{});
 }
 
-fn handleRequest(conn: std.net.StreamServer.Connection) !void {
+fn handleClient(conn: std.net.StreamServer.Connection) !void {
     var buf: [1000]u8 = undefined;
     while (true) {
         const request = try nextLine(conn.stream.reader(), &buf) orelse break;
