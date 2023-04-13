@@ -6,6 +6,7 @@ var response_table: std.StringHashMap([]const u8) = undefined;
 const listen_port = 8100;
 const docroot_path = "www";
 const max_file_size = 1048576; // bytes
+const notfound = "HTTP/1.1 404 Not Found\r\nConnection: keep-alive\r\nContent-type: text/html\r\nContent-length: 4\r\n\r\n404\n";
 
 pub fn main() !void {
     makeResponseTable() catch |err| {
@@ -56,7 +57,7 @@ fn handleRequest(conn: std.net.StreamServer.Connection) !void {
         if (response_table.get(request)) |response| {
             try conn.stream.writeAll(response);
         } else {
-            try send404(conn);
+            try conn.stream.writeAll(notfound);
         }
         // TODO: read request body, if any? do whatever is needed to either read
         // up to the point where we're expecting a new request, or else cleanly
@@ -71,11 +72,6 @@ fn skipHeaders(conn: std.net.StreamServer.Connection) !void {
         const line = try nextLine(conn.stream.reader(), &buf) orelse return error.EndOfStream;
         if (line.len == 0) break;
     }
-}
-
-fn send404(conn: std.net.StreamServer.Connection) !void {
-    // TODO: read from /404.html ?
-    try conn.stream.writeAll("HTTP/1.1 404 Not Found\r\nConnection: keep-alive\r\nContent-type: text/html\r\nContent-length: 4\r\n\r\n404\n");
 }
 
 fn makeResponseTable() !void {
